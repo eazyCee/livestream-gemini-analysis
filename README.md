@@ -76,9 +76,12 @@ pip3 install streamlit opencv-python google-genai google-cloud-storage
 ```
 
 ### 2. Create Google Cloud Storage Buckets
-If using the Cloud Mode, create two GCS buckets in your GCP console:
-- Chunks bucket: `livestream-chunks-<unique-suffix>`
-- Analysis bucket: `livestream-analysis-<unique-suffix>`
+If using the Cloud Mode, create two GCS buckets using the `gcloud storage` CLI:
+```bash
+gcloud storage buckets create gs://livestream-chunks-<unique-suffix> --location=us-central1
+gcloud storage buckets create gs://livestream-analysis-<unique-suffix> --location=us-central1
+```
+*(Replace `<unique-suffix>` with a unique identifier like your LDAP or project name. You can change `--location` to a region close to you, e.g., `us-central1`.)*
 
 ### 3. Configure Local Credentials
 Configure your local environment to use your GCP credentials:
