@@ -1,0 +1,16 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Local logs
+*.log
+analyzer_stdout.log
+
+# Livestream data directory (contains local clips, generated images, config with API keys, and uploaded videos)
+livestream_data/
