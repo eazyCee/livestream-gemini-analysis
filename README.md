@@ -1,14 +1,50 @@
 # 📹 Gemini Match Highlight Extractor & Video Compiler
 
-A modular, robust Python application that simulates a real-time livestream or processes custom sports match uploads, automatically groups frames into 10-second segments, uses **Gemini 2.5 (Structured JSON Mode)** to identify highlights, and lets you compile your selected clips into a custom video highlight reel!
+A modular, robust Python application that processes live match video feeds, compiles them into short segments, triggers event-driven **Gemini 2.5 (Structured Output)** video analysis in the cloud, and compiles selected clips into custom stitched video highlight reels.
 
-The frontend is built using **Streamlit**, presenting a live security feed/match stream alongside a tabbed highlights manager and a sequential video stitcher.
+The application supports both a **Hybrid Event-Driven Cloud Mode** (backed by Google Cloud Storage and Cloud Functions) and a **100% Offline Local Fallback Mode** for rapid testing and local development.
 
 ---
 
-## 🏗️ Decoupled Architecture
+## 🏗️ Hybrid Event-Driven Architecture
 
-To ensure robust performance and prevent Streamlit rerun mechanisms from interrupting video encoding, stitching, or API traffic, the app is built around a **directory-driven decoupled architecture**:
+This system can be run in two architectures, switched instantly by a checkbox in the Streamlit sidebar:
+
+### Architecture A: Hybrid Cloud Mode (Recommended)
+
+Highly scalable, production-ready event-driven flow. Heavy-lifting video processing is delegated to cloud-native event triggers.
+
+```
+[ Local Machine ]
+  ├── [ Livestream Simulator ] ──► Write current_frame.jpg (Local view)
+  │         └── Compile MP4 ──► [ Local disk cache ]
+  │                                   │
+  │                         (Background Thread Queue)
+  │                                   ▼
+  │                          [ GCS Chunks Bucket ]
+  │                                   │
+                               (GCS Finalize Event)
+                                      ▼
+[ Google Cloud Platform ]    [ GCP Cloud Function (Gen 2) ]
+                                      │
+                             (Standard GenAI SDK)
+                                      ▼
+                               [ Gemini API ] ──► Flag highlights & describe play
+                                      │
+                               (JSON Response)
+                                      ▼
+                             [ GCS Analysis Bucket ]
+                                      ▲
+                                      │
+[ Local/Cloud UI ]           [ Streamlit Dashboard ]
+                                      ├── Reads JSON analysis from GCS bucket
+                                      ├── Streams video chunks via GCS Signed URLs (v4)
+                                      └── Downloads chunks on-demand to cache for local stitching
+```
+
+### Architecture B: Local Fallback Mode (Offline)
+
+Fully local, directory-driven multi-process architecture. Perfect for running completely offline with standard Gemini API keys.
 
 ```
 [ Livestream Simulator (Process 1) ]
@@ -29,69 +65,86 @@ To ensure robust performance and prevent Streamlit rerun mechanisms from interru
                                    └─► Compile selected clips into a final highlight reel
 ```
 
-- **`livestream_data/`**: Single source of truth for inter-process communication.
-  - `current_frame.jpg`: Active rolling frame displayed on the frontend.
-  - `chunks/`: Compiled H.264 `.mp4` video segments.
-  - `analysis/`: Output structured JSON reports containing `is_highlight` and `highlight_reason` keys.
-  - `highlights/`: Stitched video segments containing preceding build-up footage.
-  - `reels/`: Final compiled master highlight reel video files.
-  - `config.json`: Shared configuration parameters.
+---
+
+## 🚀 Setup Guide
+
+### 1. Install Dependencies
+Install Streamlit, OpenCV, GCS client, and the official Google GenAI SDK:
+```bash
+pip3 install streamlit opencv-python google-genai google-cloud-storage
+```
+
+### 2. Create Google Cloud Storage Buckets
+If using the Cloud Mode, create two GCS buckets in your GCP console:
+- Chunks bucket: `livestream-chunks-<unique-suffix>`
+- Analysis bucket: `livestream-analysis-<unique-suffix>`
+
+### 3. Configure Local Credentials
+Configure your local environment to use your GCP credentials:
+```bash
+gcloud auth application-default login
+```
 
 ---
 
-## 🚀 Quick Setup Guide
+## ☁️ Deploying the Cloud Function
 
-### Prerequisites
-Make sure you have **Python 3.9+** installed on your system.
+To handle video chunk analysis in the cloud, deploy the event-driven Gen 2 Cloud Function located in the `gcp_cloud_function/` folder:
 
-### 1. Install Dependencies
-Install Streamlit, OpenCV, and the official Google GenAI SDK:
 ```bash
-pip3 install streamlit opencv-python google-genai
-```
-
-### 2. Configure your Gemini API Key
-You can launch the app directly and paste your API Key into the Streamlit sidebar. It will be safely saved inside the local `livestream_data/config.json` and automatically read by the analyzer.
-
-Alternatively, you can set the standard environment variable:
-```bash
-export GEMINI_API_KEY="your_api_key_here"
+gcloud functions deploy analyze_gcs_chunk \
+    --gen2 \
+    --runtime=python310 \
+    --region=us-central1 \
+    --trigger-event-filters="type=google.cloud.storage.object.v1.finalized" \
+    --trigger-event-filters="bucket=livestream-chunks-<unique-suffix>" \
+    --entry-point=analyze_gcs_chunk \
+    --source=./gcp_cloud_function \
+    --set-env-vars="GEMINI_API_KEY=YOUR_GEMINI_API_KEY,GCS_ANALYSIS_BUCKET=livestream-analysis-<unique-suffix>,GEMINI_MODEL=gemini-2.5-flash" \
+    --memory=512Mi
 ```
 
 ---
 
 ## 🏃 How to Run the Application
 
-To run the full system, start the two background workers followed by the Streamlit web server:
+### Running Mode A: Hybrid Cloud Mode (Recommended)
 
-```bash
-# 1. Start the livestream simulator
-python3 livestream_simulator.py &
+In Cloud Mode, the local simulator compiles video chunks, safely queues them in a thread-safe background uploader, and uploads them to GCS. The Cloud Function analyzes them in GCP, and the Streamlit dashboard displays and streams them directly from GCS via secure signed URLs.
 
-# 2. Start the Gemini analyzer watcher
-python3 gemini_analyzer.py &
-
-# 3. Start the Streamlit web dashboard
-python3 -m streamlit run app.py --server.port 8599
-```
-
-👉 Open your web browser and navigate to: **[http://localhost:8599](http://localhost:8599)**
+1. Start the livestream simulator locally:
+   ```bash
+   python3 livestream_simulator.py &
+   ```
+2. Start the Streamlit dashboard:
+   ```bash
+   python3 -m streamlit run app.py --server.port 8599
+   ```
+3. Open **[http://localhost:8599](http://localhost:8599)**, expand the **Google Cloud Storage (GCS)** section in the sidebar, tick **Enable GCS Integration**, and input your GCS bucket details.
 
 ---
 
-## ⚙️ Key Features & Usage
+### Running Mode B: Local Fallback Mode (Offline)
 
-### 🔴 Live Match Stream
-- Renders a simulated 10 FPS match stream with overlays, or streams your own custom uploaded sports recording.
-- Offers a **Play Live Stream** checkbox for continuous frame updates.
+1. Start the livestream simulator:
+   ```bash
+   python3 livestream_simulator.py &
+   ```
+2. Start the local Gemini analyzer watcher:
+   ```bash
+   python3 gemini_analyzer.py &
+   ```
+3. Start the Streamlit web dashboard:
+   ```bash
+   python3 -m streamlit run app.py --server.port 8599
+   ```
+4. Open **[http://localhost:8599](http://localhost:8599)** and ensure **Enable GCS Integration** is unchecked in the sidebar.
 
-### 📁 Custom Video Match Uploads
-Under **Livestream Source Type** in the sidebar, you can toggle to **Custom Video File Upload** to upload your own pre-recorded match (`.mp4`). The simulator loops your video and slices it into 10-second chunks for Gemini to analyze.
+---
 
-### ⚡ Structured AI Highlight Flags
-Gemini is configured to return structured JSON outputs conforming to a strict Pydantic schema. It flags any scoring play, attempt, celebration, or exciting rally as `is_highlight = true` and provides a brief `highlight_reason` tagline.
+## ⚙️ Key Features
 
-### ⏳ Interactive Timeline & Highlights Manager (3 Tabs)
-1. **⏳ Full Timeline**: View a chronological feed of all analyzed segments. Exciting highlight rows show a distinct `⚡` badge with their highlight reason.
-2. **⚡ Exciting Highlights**: Lists only segments flagged as highlights. For each, the app locates the preceding 10-second chunk (build-up), stitches them sequentially on-the-fly, and lets you play the combined clip so you see the build-up play leading directly into the goal/point scored!
-3. **🎬 Highlight Reel Compiler**: Displays a checklist of all detected highlights. Check the clips you want to keep, and click **Compile Selected Highlights into Master Reel** to stitch them sequentially (along with their build-ups) into a single compiled video file `highlight_reel_*.mp4` ready for download!
+- **Zero Stream Loss**: The simulator uploads segments using a background thread-safe daemon queue. If the network drops, chunks are safely cached locally and retried indefinitely in chronological order once the connection is restored.
+- **Signed URL Direct Video Streaming**: Videos in the Streamlit timeline stream directly from GCS using secure v4 signed URLs, eliminating heavy file-download workloads on the Streamlit application server.
+- **On-Demand Stitching Cache**: Video chunks are downloaded on-the-fly and cached in a local folder only when highlight stitching or compilation is requested.
