@@ -75,13 +75,17 @@ Install Streamlit, OpenCV, GCS client, and the official Google GenAI SDK:
 pip3 install streamlit opencv-python google-genai google-cloud-storage
 ```
 
-### 2. Create Google Cloud Storage Buckets
-If using the Cloud Mode, create two GCS buckets using the `gcloud storage` CLI:
+### 2. Retrieve Project Number & Create GCS Buckets
+If using the Cloud Mode, fetch your active GCP project number and create the GCS buckets using `gcloud storage`:
 ```bash
-gcloud storage buckets create gs://livestream-chunks-<unique-suffix> --location=us-central1
-gcloud storage buckets create gs://livestream-analysis-<unique-suffix> --location=us-central1
+# Fetch your active GCP project number
+PROJECT_NUMBER=$(gcloud projects describe $(gcloud config get-value project) --format="value(projectNumber)")
+
+# Create GCS buckets using project number as suffix
+gcloud storage buckets create gs://livestream-chunks-${PROJECT_NUMBER} --location=us-central1
+gcloud storage buckets create gs://livestream-analysis-${PROJECT_NUMBER} --location=us-central1
 ```
-*(Replace `<unique-suffix>` with a unique identifier like your LDAP or project name. You can change `--location` to a region close to you, e.g., `us-central1`.)*
+*(You can change `--location` to a region close to you, e.g., `us-central1`.)*
 
 ### 3. Configure Local Credentials
 Configure your local environment to use your GCP credentials:
@@ -96,15 +100,19 @@ gcloud auth application-default login
 To handle video chunk analysis in the cloud, deploy the event-driven Gen 2 Cloud Function located in the `gcp_cloud_function/` folder:
 
 ```bash
+# Ensure PROJECT_NUMBER variable is set
+PROJECT_NUMBER=$(gcloud projects describe $(gcloud config get-value project) --format="value(projectNumber)")
+
+# Deploy the event-driven Gen 2 Cloud Function
 gcloud functions deploy analyze_gcs_chunk \
     --gen2 \
     --runtime=python310 \
     --region=us-central1 \
     --trigger-event-filters="type=google.cloud.storage.object.v1.finalized" \
-    --trigger-event-filters="bucket=livestream-chunks-<unique-suffix>" \
+    --trigger-event-filters="bucket=livestream-chunks-${PROJECT_NUMBER}" \
     --entry-point=analyze_gcs_chunk \
     --source=./gcp_cloud_function \
-    --set-env-vars="GEMINI_API_KEY=YOUR_GEMINI_API_KEY,GCS_ANALYSIS_BUCKET=livestream-analysis-<unique-suffix>,GEMINI_MODEL=gemini-2.5-flash" \
+    --set-env-vars="GEMINI_API_KEY=YOUR_GEMINI_API_KEY,GCS_ANALYSIS_BUCKET=livestream-analysis-${PROJECT_NUMBER},GEMINI_MODEL=gemini-2.5-flash" \
     --memory=512Mi
 ```
 
