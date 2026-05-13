@@ -59,6 +59,17 @@ def stitch_videos(video_paths, output_path):
         fourcc = cv2.VideoWriter_fourcc(*'avc1')
         out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
         
+        # Fallback for Linux environments without hardware H.264 devices enabled
+        if not out.isOpened():
+            print("[Warning] 'avc1' codec failed in stitcher. Trying 'mp4v' fallback...")
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+            
+        if not out.isOpened():
+            print("[Warning] 'mp4v' codec failed in stitcher. Trying 'XVID' fallback...")
+            fourcc = cv2.VideoWriter_fourcc(*'XVID')
+            out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+        
         for vp in video_paths:
             if not os.path.exists(vp):
                 continue

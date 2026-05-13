@@ -224,6 +224,18 @@ def main():
             # Use AVC1 (H.264) codec for standard native HTML5 browser video decoding
             fourcc = cv2.VideoWriter_fourcc(*'avc1')
             out = cv2.VideoWriter(video_path, fourcc, fps, (width, height))
+            
+            # Fallback for Linux environments without hardware H.264 devices enabled
+            if not out.isOpened():
+                print("[Warning] 'avc1' codec failed in simulator. Trying 'mp4v' fallback...")
+                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                out = cv2.VideoWriter(video_path, fourcc, fps, (width, height))
+                
+            if not out.isOpened():
+                print("[Warning] 'mp4v' codec failed in simulator. Trying 'XVID' fallback...")
+                fourcc = cv2.VideoWriter_fourcc(*'XVID')
+                out = cv2.VideoWriter(video_path, fourcc, fps, (width, height))
+                
             for f in frame_buffer:
                 out.write(f)
             out.release()
