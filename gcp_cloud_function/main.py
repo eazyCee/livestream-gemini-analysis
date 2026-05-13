@@ -31,24 +31,19 @@ def analyze_gcs_chunk(cloud_event: CloudEvent):
         return
         
     # 1. Initialize Gemini client
-    api_key = os.environ.get("GEMINI_API_KEY")
-    use_vertex = os.environ.get("USE_VERTEX_AI", "false").lower() == "true"
     model_name = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
     prompt = os.environ.get(
         "GEMINI_PROMPT", 
         "Analyze the action in this sports match / livestream video clip. Describe the play in detail. If there is a key moment, scoring attempt, point scored, goal, player celebration, exciting rally, or other significant highlight event, flag it as a highlight."
     )
     
-    if api_key and use_vertex:
-        print("Initializing GenAI client using Vertex AI with provided API Key...")
-        client = genai.Client(vertexai=True, api_key=api_key)
-    elif api_key:
-        print("Initializing GenAI client using provided API Key...")
-        client = genai.Client(api_key=api_key)
-    else:
-        print("Initializing standard GenAI client (using Application Default Credentials / ADC)...")
-        # In Cloud Functions, this automatically uses the service account's credentials and default GCP project
-        client = genai.Client()
+    # Initialize GenAI client
+    # The google-genai SDK automatically resolves standard environment variables:
+    # - API keys: GEMINI_API_KEY or GOOGLE_API_KEY
+    # - Vertex AI: GOOGLE_GENAI_USE_VERTEXAI=True, GOOGLE_CLOUD_PROJECT, and GOOGLE_CLOUD_LOCATION
+    # - ADC / Service Account credentials automatically on GCP environments (Cloud Functions)
+    print("Initializing GenAI client...")
+    client = genai.Client()
         
     # 2. Setup GCS references
     analysis_bucket_name = os.environ.get("GCS_ANALYSIS_BUCKET")

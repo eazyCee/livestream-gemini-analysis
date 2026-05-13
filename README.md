@@ -116,6 +116,14 @@ gcloud functions deploy analyze_gcs_chunk \
     --memory=512Mi
 ```
 
+> [!TIP]
+> **Running with Vertex AI Backend**
+> If you want to use Google Cloud **Vertex AI** instead of the standard Gemini developer API, you do not need any code changes! Simply configure the `google-genai` SDK's native environment variables when deploying:
+> ```bash
+>     --set-env-vars="GOOGLE_GENAI_USE_VERTEXAI=True,GOOGLE_CLOUD_PROJECT=sandbox-dce,GOOGLE_CLOUD_LOCATION=global,GCS_ANALYSIS_BUCKET=livestream-analysis-${PROJECT_NUMBER},GEMINI_MODEL=gemini-2.5-flash"
+> ```
+> *(In this case, `GEMINI_API_KEY` is completely optional, as the SDK automatically authenticates using your Cloud Function service account's built-in IAM credentials!)*
+
 ---
 
 ## 🏃 How to Run the Application
