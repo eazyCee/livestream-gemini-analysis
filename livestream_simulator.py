@@ -9,7 +9,7 @@ import threading
 from google.cloud import storage
 
 # Base directories
-BASE_DIR = "/Users/clifftangel/Documents/livestream-gemini"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "livestream_data")
 CHUNKS_DIR = os.path.join(DATA_DIR, "chunks")
 CONFIG_FILE = os.path.join(DATA_DIR, "config.json")

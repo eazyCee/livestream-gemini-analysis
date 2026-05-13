@@ -12,7 +12,7 @@ class MatchAnalysisSchema(BaseModel):
     highlight_reason: str = Field(description="A brief one-sentence explanation of why this clip is or is not a highlight.")
 
 # Base directories
-BASE_DIR = "/Users/clifftangel/Documents/livestream-gemini"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "livestream_data")
 CHUNKS_DIR = os.path.join(DATA_DIR, "chunks")
 ANALYSIS_DIR = os.path.join(DATA_DIR, "analysis")
